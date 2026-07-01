@@ -1,0 +1,1807 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Diffusion-Controlled Carburization Simulator</title>
+  <style>
+    :root {
+      --ink: #22211f;
+      --muted: #68635c;
+      --paper: #f7f5ef;
+      --panel: #ffffff;
+      --line: #d8d2c5;
+      --teal: #0b6f6a;
+      --teal-soft: #d9efec;
+      --amber: #bd6b00;
+      --red: #b33a3a;
+      --green: #27754b;
+      --blue: #385e9d;
+      --shadow: 0 14px 34px rgba(42, 35, 25, 0.10);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--paper);
+    }
+
+    button, input, select {
+      font: inherit;
+    }
+
+    .shell {
+      min-height: 100vh;
+      display: grid;
+      grid-template-rows: auto 1fr;
+    }
+
+    header {
+      border-bottom: 1px solid var(--line);
+      background: #fbfaf6;
+    }
+
+    .topbar {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: 18px clamp(16px, 3vw, 32px);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 18px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(21px, 2.4vw, 34px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    .subtitle {
+      margin: 6px 0 0;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .badge {
+      flex: 0 0 auto;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      border: 1px solid #b7d5d1;
+      color: var(--teal);
+      background: var(--teal-soft);
+      padding: 8px 11px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    main {
+      width: min(1480px, 100%);
+      margin: 0 auto;
+      padding: clamp(16px, 3vw, 32px);
+      display: grid;
+      grid-template-columns: minmax(300px, 380px) minmax(0, 1fr);
+      gap: 22px;
+    }
+
+    .controls,
+    .chart-panel,
+    .table-panel,
+    .metric {
+      background: var(--panel);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      box-shadow: var(--shadow);
+    }
+
+    .controls {
+      padding: 18px;
+      align-self: start;
+      display: grid;
+      gap: 18px;
+      position: sticky;
+      top: 16px;
+    }
+
+    .section-title {
+      margin: 0 0 12px;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      font-weight: 800;
+    }
+
+    .field {
+      display: grid;
+      gap: 7px;
+      margin-bottom: 13px;
+    }
+
+    label {
+      color: #37332e;
+      font-size: 13px;
+      font-weight: 750;
+      display: flex;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .unit {
+      color: var(--muted);
+      font-weight: 650;
+    }
+
+    .hint {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+    }
+
+    select,
+    input[type="number"] {
+      width: 100%;
+      min-height: 42px;
+      border: 1px solid #c7c0b2;
+      border-radius: 8px;
+      padding: 9px 10px;
+      background: #fffdfa;
+      color: var(--ink);
+      outline: none;
+    }
+
+    select:focus,
+    input[type="number"]:focus {
+      border-color: var(--teal);
+      box-shadow: 0 0 0 3px rgba(11, 111, 106, 0.15);
+    }
+
+    .inline {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .criterion-row {
+      align-items: start;
+    }
+
+    .criterion-row .field {
+      grid-template-rows: 18px 42px 32px;
+      align-items: start;
+      margin-bottom: 0;
+    }
+
+    .criterion-row label {
+      min-height: 18px;
+      align-items: center;
+    }
+
+    .criterion-row input[type="number"] {
+      min-height: 42px;
+      height: 42px;
+    }
+
+    .criterion-row .hint {
+      min-height: 32px;
+    }
+
+    .criterion-row .hint-spacer {
+      min-height: 32px;
+      visibility: hidden;
+    }
+
+    .chips {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 8px;
+    }
+
+    .chip {
+      min-height: 38px;
+      border: 1px solid #c7c0b2;
+      background: #fffdfa;
+      border-radius: 8px;
+      padding: 8px 9px;
+      color: #34302c;
+      font-weight: 750;
+      cursor: pointer;
+    }
+
+    .chip[aria-pressed="true"] {
+      border-color: var(--teal);
+      background: var(--teal-soft);
+      color: var(--teal);
+    }
+
+    .action-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .primary,
+    .secondary {
+      min-height: 42px;
+      border-radius: 8px;
+      padding: 9px 11px;
+      font-weight: 800;
+      cursor: pointer;
+    }
+
+    .primary {
+      border: 1px solid var(--teal);
+      background: var(--teal);
+      color: white;
+    }
+
+    .secondary {
+      border: 1px solid #c7c0b2;
+      background: #fffdfa;
+      color: #2d2a26;
+    }
+
+    .workspace {
+      display: grid;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(118px, 1fr));
+      gap: 12px;
+    }
+
+    .metric {
+      padding: 14px;
+      min-height: 92px;
+      display: grid;
+      align-content: center;
+      justify-items: center;
+      gap: 10px;
+      box-shadow: none;
+    }
+
+    .metric .name {
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 0.07em;
+      line-height: 1.15;
+      text-align: center;
+    }
+
+    .metric .value {
+      font-size: clamp(15px, 1.35vw, 20px);
+      font-weight: 850;
+      line-height: 1.05;
+      color: #1e1b18;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .metric .value sup {
+      font-size: 0.58em;
+      line-height: 0;
+    }
+
+    #diffusivity {
+      font-size: clamp(10px, 0.9vw, 13px);
+      line-height: 1.15;
+      white-space: nowrap;
+    }
+
+    #criterionCarbon {
+      font-size: 12px;
+      line-height: 1.25;
+      white-space: normal;
+      max-width: 160px;
+    }
+
+    #analyticError {
+      font-size: 13px;
+      line-height: 1.15;
+      max-width: 100%;
+      text-align: center;
+      white-space: nowrap;
+    }
+
+    .chart-panel {
+      padding: 16px;
+      min-width: 0;
+      box-shadow: var(--shadow);
+    }
+
+    .chart-head {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 12px;
+    }
+
+    h2 {
+      margin: 0;
+      font-size: 18px;
+      letter-spacing: 0;
+    }
+
+    .model-note {
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.45;
+      max-width: 680px;
+    }
+
+    .legend {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px 14px;
+      color: #38342f;
+      font-size: 13px;
+      font-weight: 750;
+      justify-content: flex-end;
+    }
+
+    .legend-item {
+      display: inline-flex;
+      align-items: center;
+      gap: 7px;
+      white-space: nowrap;
+    }
+
+    .swatch {
+      width: 16px;
+      height: 4px;
+      border-radius: 2px;
+      display: inline-block;
+    }
+
+    .swatch.dashed {
+      background: repeating-linear-gradient(90deg, currentColor 0 5px, transparent 5px 8px);
+    }
+
+    .canvas-wrap {
+      width: 100%;
+      aspect-ratio: 16 / 8.5;
+      min-height: 360px;
+      border: 1px solid #e1dbcf;
+      border-radius: 8px;
+      overflow: hidden;
+      background: #fffdfa;
+    }
+
+    .canvas-wrap.arrhenius {
+      aspect-ratio: 16 / 6.5;
+      min-height: 300px;
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: 100%;
+    }
+
+    .zones-block {
+      margin-top: 14px;
+      border-top: 1px solid #e8e2d8;
+      padding-top: 14px;
+    }
+
+    .zones-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .zones-table th,
+    .zones-table td {
+      padding: 9px 10px;
+      border-bottom: 1px solid #e8e2d8;
+      text-align: left;
+    }
+
+    .zones-table th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .zones-table td:first-child {
+      width: 170px;
+      color: var(--teal);
+      font-weight: 850;
+    }
+
+    .lower-grid {
+      display: grid;
+      grid-template-columns: 1.1fr 0.9fr;
+      gap: 18px;
+    }
+
+    .table-panel {
+      padding: 16px;
+      box-shadow: none;
+      overflow-x: auto;
+    }
+
+    .profile-table {
+      width: 100%;
+      min-width: 760px;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .profile-table th,
+    .profile-table td {
+      padding: 9px 8px;
+      text-align: right;
+      border-bottom: 1px solid #e8e2d8;
+      white-space: nowrap;
+    }
+
+    .profile-table th:first-child,
+    .profile-table td:first-child {
+      text-align: left;
+    }
+
+    .profile-table th {
+      color: var(--muted);
+      font-size: 12px;
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+
+    .equation {
+      margin: 0;
+      padding: 14px;
+      border-left: 4px solid var(--amber);
+      background: #fff8ea;
+      color: #40392f;
+      line-height: 1.55;
+      font-size: 13px;
+      border-radius: 0 8px 8px 0;
+    }
+
+    .equation strong {
+      color: #1f1b17;
+    }
+
+    .query-tool {
+      display: grid;
+      gap: 14px;
+      min-width: 360px;
+    }
+
+    .query-controls {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+      align-items: end;
+    }
+
+    .query-controls .field {
+      margin-bottom: 0;
+    }
+
+    .query-result,
+    .validation-panel {
+      display: grid;
+      gap: 8px;
+      padding-top: 12px;
+      border-top: 1px solid #e8e2d8;
+    }
+
+    .query-row,
+    .validation-row {
+      display: grid;
+      grid-template-columns: minmax(150px, 1fr) auto;
+      gap: 12px;
+      align-items: baseline;
+      color: #4f4941;
+      font-size: 13px;
+    }
+
+    .query-row strong,
+    .validation-row strong {
+      color: #1f1b17;
+      font-size: 14px;
+      text-align: right;
+      white-space: nowrap;
+    }
+
+    #validationSemiStatus {
+      max-width: 260px;
+      white-space: normal;
+    }
+
+    .query-warning {
+      color: #9b3d26;
+      font-size: 13px;
+      font-weight: 750;
+      line-height: 1.35;
+    }
+
+    .assumption-check {
+      margin-top: 14px;
+      padding: 12px;
+      border: 1px solid #ddd5c8;
+      border-left: 4px solid var(--teal);
+      border-radius: 0 8px 8px 0;
+      background: #fffdfa;
+      color: #40392f;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .assumption-check strong {
+      color: #1f1b17;
+    }
+
+    .assumption-check.caution {
+      border-left-color: var(--amber);
+      background: #fff8ea;
+    }
+
+    .assumption-check.warning {
+      border-color: #ddb6a5;
+      border-left-color: #b33a3a;
+      background: #fff1ec;
+    }
+
+    .validation-row.caution strong {
+      color: #8a5200;
+    }
+
+    .validation-row.warning strong {
+      color: #9b3d26;
+    }
+
+    .hidden {
+      display: none !important;
+    }
+
+    .status {
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.4;
+      min-height: 34px;
+    }
+
+    @media (max-width: 1020px) {
+      main {
+        grid-template-columns: 1fr;
+      }
+
+      .controls {
+        position: static;
+      }
+
+      .metrics {
+        grid-template-columns: repeat(2, minmax(140px, 1fr));
+      }
+
+      .lower-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 620px) {
+      .topbar {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+
+      .badge {
+        white-space: normal;
+      }
+
+      .inline,
+      .chips,
+      .action-row,
+      .metrics {
+        grid-template-columns: 1fr;
+      }
+
+      .chart-head {
+        flex-direction: column;
+      }
+
+      .legend {
+        justify-content: flex-start;
+      }
+
+      .canvas-wrap {
+        min-height: 310px;
+        aspect-ratio: 4 / 3;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <header>
+      <div class="topbar">
+        <div>
+          <h1>Diffusion-Controlled Carburization Simulator</h1>
+          <p class="subtitle">Fick's second law with finite-difference and analytical error-function profiles.</p>
+        </div>
+        <div class="badge">Explicit FDM model</div>
+      </div>
+    </header>
+
+    <main>
+      <aside class="controls" aria-label="Simulation controls">
+        <section>
+          <p class="section-title">Material</p>
+          <div class="field">
+            <label for="grade">Steel grade</label>
+            <select id="grade"></select>
+          </div>
+          <div class="inline">
+            <div class="field">
+              <label for="initialCarbon">Initial C <span class="unit">wt%</span></label>
+              <input id="initialCarbon" type="number" min="0.05" max="1.2" step="0.01">
+            </div>
+            <div class="field">
+              <label for="surfaceCarbon">Surface C <span class="unit">wt%</span></label>
+              <input id="surfaceCarbon" type="number" min="0.1" max="1.4" step="0.01">
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <p class="section-title">Cycle</p>
+          <div class="inline">
+            <div class="field">
+              <label for="temperature">Temperature <span class="unit">°C</span></label>
+              <input id="temperature" type="number" min="760" max="1050" step="5">
+            </div>
+            <div class="field">
+              <label for="time">Time <span class="unit">hours</span></label>
+              <input id="time" type="number" min="0.1" max="72" step="0.1">
+            </div>
+          </div>
+          <div class="inline">
+            <div class="field">
+              <label for="depth">Model depth <span class="unit">mm</span></label>
+              <input id="depth" type="number" min="1" max="12" step="0.25">
+            </div>
+            <div class="field">
+              <label for="caseCriterion">Depth criterion</label>
+              <select id="caseCriterion">
+                <option value="hv">Effective case depth</option>
+                <option value="carbon">Carbon limit</option>
+              </select>
+            </div>
+          </div>
+          <div class="inline criterion-row">
+            <div class="field">
+              <label for="hardnessCriterion">Hardness criterion <span class="unit">HV</span></label>
+              <input id="hardnessCriterion" type="number" min="200" max="950" step="5">
+              <div class="hint-spacer" aria-hidden="true">.</div>
+            </div>
+            <div class="field">
+              <label for="caseThreshold">Carbon limit <span class="unit">wt% C</span></label>
+              <input id="caseThreshold" type="number" min="0.15" max="1.0" step="0.01">
+              <div class="hint" id="criterionHint"></div>
+            </div>
+          </div>
+        </section>
+
+        <section>
+          <p class="section-title">Comparison mode</p>
+          <div class="field">
+            <label for="compareMode">Overlay profiles by</label>
+            <select id="compareMode">
+              <option value="temperature">Temperature</option>
+              <option value="time">Carburization time</option>
+            </select>
+          </div>
+          <p class="section-title" id="compareTitle">Compare temperatures</p>
+          <div class="chips" id="compareChips"></div>
+        </section>
+
+        <div class="action-row">
+          <button class="primary" id="runButton" type="button">Simulate</button>
+          <button class="secondary" id="csvButton" type="button">Export CSV</button>
+        </div>
+        <div class="status" id="status"></div>
+      </aside>
+
+      <section class="workspace">
+        <div class="metrics">
+          <div class="metric">
+            <div class="name" id="caseDepthName">Effective case depth</div>
+            <div class="value" id="caseDepth">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Analytical depth</div>
+            <div class="value" id="analyticalDepth">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Case Depth Criterion</div>
+            <div class="value" id="criterionCarbon">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Surface hardness</div>
+            <div class="value" id="surfaceHardness">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Diffusivity</div>
+            <div class="value" id="diffusivity">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Grid points</div>
+            <div class="value" id="gridPoints">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Time steps</div>
+            <div class="value" id="timeSteps">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Activation energy</div>
+            <div class="value" id="activationEnergy">-</div>
+          </div>
+          <div class="metric">
+            <div class="name">Maximum Profile Error</div>
+            <div class="value" id="analyticError">-</div>
+          </div>
+          <div class="metric" title="Characteristic diffusion length scale for the current carburization cycle.">
+            <div class="name">Characteristic Diffusion Distance</div>
+            <div class="value" id="characteristicDistance">-</div>
+          </div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="chart-head">
+            <div>
+              <h2>Carbon concentration vs distance</h2>
+              <div class="model-note" id="modelNote"></div>
+            </div>
+            <div class="legend" id="legend"></div>
+          </div>
+          <div class="canvas-wrap">
+            <canvas id="chart" width="1200" height="640" aria-label="Carbon concentration profile chart"></canvas>
+          </div>
+          <div class="zones-block">
+            <p class="section-title">Illustrative Post-Quench Microstructure Zones</p>
+            <table class="zones-table">
+              <thead>
+                <tr>
+                  <th>Carbon range</th>
+                  <th>Predicted structure</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>&gt; 0.8%</td>
+                  <td>High Carbon Martensite</td>
+                </tr>
+                <tr>
+                  <td>0.4-0.8%</td>
+                  <td>Martensite + Bainite</td>
+                </tr>
+                <tr>
+                  <td>0.2-0.4%</td>
+                  <td>Ferrite + Pearlite</td>
+                </tr>
+                <tr>
+                  <td>&lt; 0.2%</td>
+                  <td>Ferritic Core</td>
+                </tr>
+              </tbody>
+            </table>
+            <p class="model-note">Microstructure predictions are qualitative and assume rapid cooling after carburization. Actual structures depend on alloy composition, cooling rate, and heat-treatment conditions.</p>
+          </div>
+        </div>
+
+        <div class="chart-panel">
+          <div class="chart-head">
+            <div>
+              <h2>Arrhenius plot</h2>
+              <div class="model-note" id="arrheniusNote"></div>
+            </div>
+            <div class="legend" id="arrheniusLegend"></div>
+          </div>
+          <div class="canvas-wrap arrhenius">
+            <canvas id="arrheniusChart" width="1200" height="520" aria-label="Arrhenius plot showing natural log diffusivity against inverse absolute temperature"></canvas>
+          </div>
+        </div>
+
+        <div class="lower-grid">
+          <div class="table-panel">
+            <p class="section-title">Profile sample</p>
+            <table class="profile-table">
+              <thead>
+                <tr>
+                  <th>Distance</th>
+                  <th>FDM carbon</th>
+                  <th>Analytical C</th>
+                  <th>Approx. hardness</th>
+                  <th>Predicted structure</th>
+                  <th>Normalized</th>
+                </tr>
+              </thead>
+              <tbody id="profileBody"></tbody>
+            </table>
+            <div class="assumption-check" id="profileAssumptionCheck"></div>
+          </div>
+          <div class="table-panel query-tool">
+            <p class="section-title">Profile Query Tool</p>
+            <div class="query-controls">
+              <div class="field">
+                <label for="queryMode">Query mode</label>
+                <select id="queryMode">
+                  <option value="carbonAtDepth">Carbon at depth</option>
+                  <option value="depthAtCarbon">Depth at carbon</option>
+                </select>
+              </div>
+              <div class="field" id="queryDepthField">
+                <label for="queryDepth">Depth <span class="unit">mm</span></label>
+                <input id="queryDepth" type="number" min="0" max="12" step="0.01">
+              </div>
+              <div class="field hidden" id="queryCarbonField">
+                <label for="queryCarbon">Carbon <span class="unit">wt% C</span></label>
+                <input id="queryCarbon" type="number" min="0.05" max="1.4" step="0.01">
+              </div>
+            </div>
+            <div class="query-result" id="queryResult"></div>
+            <div class="validation-panel">
+              <p class="section-title">Numerical vs Analytical Validation</p>
+              <div class="validation-row"><span>Max difference</span><strong id="validationMaxDiff">-</strong></div>
+              <div class="validation-row"><span>Avg difference</span><strong id="validationAvgDiff">-</strong></div>
+              <div class="validation-row"><span>Max % error</span><strong id="validationMaxPct">-</strong></div>
+              <div class="validation-row"><span>RMSE</span><strong id="validationRmse">-</strong></div>
+              <div class="validation-row" id="validationSemiRatioRow"><span>Semi-Infinite Ratio</span><strong id="validationSemiRatio">-</strong></div>
+              <div class="validation-row" id="validationSemiStatusRow"><span>Interpretation</span><strong id="validationSemiStatus">-</strong></div>
+            </div>
+            <p class="equation hidden">
+              <strong>Fick's second law:</strong> dC/dt = D d²C/dx²<br>
+              Explicit finite difference: C(i,n+1) = C(i,n) + r[C(i+1,n) - 2C(i,n) + C(i-1,n)], where r = D dt / dx².<br>
+              <strong>Analytical solution:</strong> (C - C0)/(Cs - C0) = 1 - erf[x/(2&radic;(Dt))] for a semi-infinite solid with fixed surface carbon.<br>
+              <strong>Case growth:</strong> at fixed temperature, diffusion distance follows x &prop; &radic;(Dt), so doubling time does not double case depth.<br>
+              <strong>Arrhenius relation:</strong> D = D0 exp(-Q/RT), so ln(D) plotted against 1/T gives slope = -Q/R.<br>
+              <strong>Hardness estimate:</strong> approximate post-quench HRC = 20 + 50C, capped at 68 HRC.<br>
+              <strong>Illustrative post-quench microstructure zones:</strong> local carbon level is mapped qualitatively to expected post-quench structure.
+            </p>
+          </div>
+        </div>
+        <p class="equation">Analytical profiles are based on the semi-infinite solid solution to Fick's Second Law. When the characteristic diffusion distance (&radic;Dt) becomes comparable to the model depth, finite-domain effects influence the numerical solution and deviations between FDM and analytical predictions may occur.</p>
+      </section>
+    </main>
+  </div>
+
+  <script>
+    const grades = [
+      { id: "1018", name: "AISI 1018 low-carbon", c0: 0.18, surface: 0.90, factor: 1.00 },
+      { id: "1020", name: "AISI 1020 low-carbon", c0: 0.20, surface: 0.92, factor: 0.98 },
+      { id: "8620", name: "AISI 8620 case-hardening", c0: 0.20, surface: 0.95, factor: 0.82 },
+      { id: "20mncr5", name: "20MnCr5 gear steel", c0: 0.20, surface: 0.95, factor: 0.76 },
+      { id: "4320", name: "AISI 4320 Ni-Cr-Mo", c0: 0.20, surface: 0.95, factor: 0.72 },
+      { id: "4140", name: "AISI 4140 alloy steel", c0: 0.40, surface: 0.95, factor: 0.65 }
+    ];
+
+    const compareTemps = [850, 900, 930, 980];
+    const compareTimes = [2, 4, 8, 16];
+    const colors = ["#0b6f6a", "#bd6b00", "#385e9d", "#b33a3a", "#27754b"];
+    const R = 8.314;
+    const D0 = 1.2e-5;
+    const Q = 148000;
+    const hrcHvTable = [
+      [18, 230],
+      [20, 238],
+      [25, 266],
+      [30, 302],
+      [35, 345],
+      [40, 392],
+      [45, 446],
+      [50, 513],
+      [55, 595],
+      [60, 697],
+      [65, 832],
+      [68, 940]
+    ];
+
+    const els = {
+      grade: document.getElementById("grade"),
+      initialCarbon: document.getElementById("initialCarbon"),
+      surfaceCarbon: document.getElementById("surfaceCarbon"),
+      temperature: document.getElementById("temperature"),
+      time: document.getElementById("time"),
+      depth: document.getElementById("depth"),
+      caseCriterion: document.getElementById("caseCriterion"),
+      hardnessCriterion: document.getElementById("hardnessCriterion"),
+      caseThreshold: document.getElementById("caseThreshold"),
+      criterionHint: document.getElementById("criterionHint"),
+      compareMode: document.getElementById("compareMode"),
+      compareTitle: document.getElementById("compareTitle"),
+      chips: document.getElementById("compareChips"),
+      runButton: document.getElementById("runButton"),
+      csvButton: document.getElementById("csvButton"),
+      status: document.getElementById("status"),
+      caseDepthName: document.getElementById("caseDepthName"),
+      caseDepth: document.getElementById("caseDepth"),
+      analyticalDepth: document.getElementById("analyticalDepth"),
+      criterionCarbon: document.getElementById("criterionCarbon"),
+      surfaceHardness: document.getElementById("surfaceHardness"),
+      diffusivity: document.getElementById("diffusivity"),
+      gridPoints: document.getElementById("gridPoints"),
+      timeSteps: document.getElementById("timeSteps"),
+      activationEnergy: document.getElementById("activationEnergy"),
+      analyticError: document.getElementById("analyticError"),
+      characteristicDistance: document.getElementById("characteristicDistance"),
+      modelNote: document.getElementById("modelNote"),
+      arrheniusNote: document.getElementById("arrheniusNote"),
+      legend: document.getElementById("legend"),
+      arrheniusLegend: document.getElementById("arrheniusLegend"),
+      chart: document.getElementById("chart"),
+      arrheniusChart: document.getElementById("arrheniusChart"),
+      profileBody: document.getElementById("profileBody"),
+      queryMode: document.getElementById("queryMode"),
+      queryDepthField: document.getElementById("queryDepthField"),
+      queryDepth: document.getElementById("queryDepth"),
+      queryCarbonField: document.getElementById("queryCarbonField"),
+      queryCarbon: document.getElementById("queryCarbon"),
+      queryResult: document.getElementById("queryResult"),
+      profileAssumptionCheck: document.getElementById("profileAssumptionCheck"),
+      validationMaxDiff: document.getElementById("validationMaxDiff"),
+      validationAvgDiff: document.getElementById("validationAvgDiff"),
+      validationMaxPct: document.getElementById("validationMaxPct"),
+      validationRmse: document.getElementById("validationRmse"),
+      validationSemiRatioRow: document.getElementById("validationSemiRatioRow"),
+      validationSemiRatio: document.getElementById("validationSemiRatio"),
+      validationSemiStatusRow: document.getElementById("validationSemiStatusRow"),
+      validationSemiStatus: document.getElementById("validationSemiStatus")
+    };
+
+    let selectedCompareTemps = new Set([900, 930, 980]);
+    let selectedCompareTimes = new Set([2, 4, 16]);
+    let lastResult = null;
+
+    function init() {
+      grades.forEach((grade) => {
+        const option = document.createElement("option");
+        option.value = grade.id;
+        option.textContent = grade.name;
+        els.grade.appendChild(option);
+      });
+      els.grade.value = "8620";
+      els.temperature.value = 930;
+      els.time.value = 8;
+      els.depth.value = 4;
+      els.caseCriterion.value = "hv";
+      els.hardnessCriterion.value = 550;
+      els.caseThreshold.value = 0.40;
+      els.compareMode.value = "temperature";
+      els.queryMode.value = "carbonAtDepth";
+      els.queryDepth.value = 0.75;
+      els.queryCarbon.value = 0.40;
+      applyGrade();
+      updateCriterionControls();
+      updateQueryModeControls();
+      renderChips();
+      attachEvents();
+      runSimulation();
+    }
+
+    function attachEvents() {
+      els.grade.addEventListener("change", () => {
+        applyGrade();
+        runSimulation();
+      });
+      [
+        els.initialCarbon,
+        els.surfaceCarbon,
+        els.temperature,
+        els.time,
+        els.depth,
+        els.caseCriterion,
+        els.hardnessCriterion,
+        els.caseThreshold
+      ].forEach((input) => input.addEventListener("input", runSimulation));
+      els.compareMode.addEventListener("change", () => {
+        renderChips();
+        runSimulation();
+      });
+      els.caseCriterion.addEventListener("change", () => {
+        updateCriterionControls();
+        runSimulation();
+      });
+      els.queryMode.addEventListener("change", () => {
+        updateQueryModeControls();
+        if (lastResult) updateQueryAndValidation(lastResult.primary);
+      });
+      [els.queryDepth, els.queryCarbon].forEach((input) => input.addEventListener("input", () => {
+        if (lastResult) updateQueryAndValidation(lastResult.primary);
+      }));
+      els.runButton.addEventListener("click", runSimulation);
+      els.csvButton.addEventListener("click", exportCsv);
+      window.addEventListener("resize", () => {
+        if (lastResult) {
+          drawChart(lastResult);
+          drawArrheniusPlot(lastResult);
+        }
+      });
+    }
+
+    function applyGrade() {
+      const grade = getGrade();
+      els.initialCarbon.value = grade.c0.toFixed(2);
+      els.surfaceCarbon.value = grade.surface.toFixed(2);
+    }
+
+    function renderChips() {
+      els.chips.innerHTML = "";
+      const compareMode = els.compareMode.value;
+      const options = compareMode === "time" ? compareTimes : compareTemps;
+      const selected = compareMode === "time" ? selectedCompareTimes : selectedCompareTemps;
+      els.compareTitle.textContent = compareMode === "time" ? "Compare carburization times" : "Compare temperatures";
+
+      options.forEach((value) => {
+        const button = document.createElement("button");
+        button.className = "chip";
+        button.type = "button";
+        button.textContent = compareMode === "time" ? `${value} h` : `${value} \u00b0C`;
+        button.setAttribute("aria-pressed", selected.has(value) ? "true" : "false");
+        button.addEventListener("click", () => {
+          if (selected.has(value)) {
+            selected.delete(value);
+          } else {
+            selected.add(value);
+          }
+          renderChips();
+          runSimulation();
+        });
+        els.chips.appendChild(button);
+      });
+    }
+    function getGrade() {
+      return grades.find((grade) => grade.id === els.grade.value) || grades[0];
+    }
+
+    function readParams(overrides = {}) {
+      const grade = getGrade();
+      const temperature = Number(overrides.temperature ?? els.temperature.value);
+      const timeHours = Number(overrides.timeHours ?? els.time.value);
+      const initialCarbon = Number(els.initialCarbon.value);
+      const surfaceCarbon = Number(els.surfaceCarbon.value);
+      const depthMm = Number(els.depth.value);
+      const caseCriterion = els.caseCriterion.value;
+      const hardnessCriterionHv = Number(els.hardnessCriterion.value);
+      const manualCarbonLimit = Number(els.caseThreshold.value);
+      const threshold = caseCriterion === "hv"
+        ? carbonFromHardnessHv(hardnessCriterionHv)
+        : manualCarbonLimit;
+      const thresholdLabel = caseCriterion === "hv"
+        ? `${hardnessCriterionHv.toFixed(0)} HV`
+        : `${manualCarbonLimit.toFixed(2)} wt% C`;
+      return {
+        grade,
+        temperature,
+        timeHours,
+        initialCarbon,
+        surfaceCarbon,
+        depthMm,
+        threshold,
+        caseCriterion,
+        hardnessCriterionHv,
+        manualCarbonLimit,
+        thresholdLabel
+      };
+    }
+
+    function diffusivity(temperatureC, factor) {
+      const kelvin = temperatureC + 273.15;
+      return D0 * Math.exp(-Q / (R * kelvin)) * factor;
+    }
+
+    function hardnessFromCarbon(carbonWtPercent) {
+      return Math.min(68, Math.max(18, 20 + 50 * carbonWtPercent));
+    }
+
+    function interpolateTable(table, input, inputIndex, outputIndex) {
+      if (input <= table[0][inputIndex]) return table[0][outputIndex];
+      const last = table[table.length - 1];
+      if (input >= last[inputIndex]) return last[outputIndex];
+      for (let i = 1; i < table.length; i++) {
+        const previous = table[i - 1];
+        const current = table[i];
+        if (input <= current[inputIndex]) {
+          const t = (input - previous[inputIndex]) / (current[inputIndex] - previous[inputIndex]);
+          return previous[outputIndex] + t * (current[outputIndex] - previous[outputIndex]);
+        }
+      }
+      return last[outputIndex];
+    }
+
+    function hardnessHvFromCarbon(carbonWtPercent) {
+      return interpolateTable(hrcHvTable, hardnessFromCarbon(carbonWtPercent), 0, 1);
+    }
+
+    function carbonFromHardnessHv(hardnessHv) {
+      const hrc = interpolateTable(hrcHvTable, hardnessHv, 1, 0);
+      return (hrc - 20) / 50;
+    }
+
+    function formatHours(hours) {
+      return Number.isInteger(hours) ? String(hours) : hours.toFixed(1);
+    }
+
+    function updateCriterionControls() {
+      const usesHv = els.caseCriterion.value === "hv";
+      els.hardnessCriterion.disabled = !usesHv;
+      els.caseThreshold.disabled = usesHv;
+      const equivalentCarbon = usesHv
+        ? carbonFromHardnessHv(Number(els.hardnessCriterion.value))
+        : Number(els.caseThreshold.value);
+      els.criterionHint.textContent = usesHv
+        ? `Equivalent carbon criterion: ${equivalentCarbon.toFixed(3)} wt% C`
+        : "Carbon limit is used directly for the case-depth crossing.";
+    }
+
+    function updateQueryModeControls() {
+      const carbonAtDepth = els.queryMode.value === "carbonAtDepth";
+      els.queryDepthField.classList.toggle("hidden", !carbonAtDepth);
+      els.queryCarbonField.classList.toggle("hidden", carbonAtDepth);
+    }
+
+    function interpolateAtDepth(x, values, targetDepth) {
+      if (targetDepth <= x[0]) return values[0];
+      if (targetDepth >= x[x.length - 1]) return values[values.length - 1];
+      for (let i = 1; i < x.length; i++) {
+        if (targetDepth <= x[i]) {
+          const x1 = x[i - 1];
+          const x2 = x[i];
+          const y1 = values[i - 1];
+          const y2 = values[i];
+          const fraction = (targetDepth - x1) / (x2 - x1);
+          return y1 + fraction * (y2 - y1);
+        }
+      }
+      return values[values.length - 1];
+    }
+
+    function interpolateDepthAtCarbon(x, values, targetCarbon) {
+      if (targetCarbon > values[0] || targetCarbon < values[values.length - 1]) return null;
+      for (let i = 1; i < values.length; i++) {
+        const c1 = values[i - 1];
+        const c2 = values[i];
+        const crosses = (targetCarbon <= c1 && targetCarbon >= c2) || (targetCarbon >= c1 && targetCarbon <= c2);
+        if (crosses) {
+          if (c1 === c2) return x[i];
+          const fraction = (targetCarbon - c1) / (c2 - c1);
+          return x[i - 1] + fraction * (x[i] - x[i - 1]);
+        }
+      }
+      return null;
+    }
+
+    function solveAnalyticalDepthAtCarbon(targetCarbon, params, D) {
+      const surfaceCarbon = analyticalCarbonAt(0, params, D);
+      const endCarbon = analyticalCarbonAt(params.depthMm, params, D);
+      if (targetCarbon > surfaceCarbon || targetCarbon < endCarbon) return null;
+      let low = 0;
+      let high = params.depthMm;
+      for (let i = 0; i < 48; i++) {
+        const mid = (low + high) / 2;
+        const carbon = analyticalCarbonAt(mid, params, D);
+        if (carbon > targetCarbon) low = mid;
+        else high = mid;
+      }
+      return (low + high) / 2;
+    }
+
+    function computeValidationStats(result) {
+      const diffs = result.c.map((carbon, i) => carbon - result.cAnalytical[i]);
+      const absDiffs = diffs.map((value) => Math.abs(value));
+      const pctErrors = result.cAnalytical.map((analytical, i) => analytical > 0 ? absDiffs[i] / analytical * 100 : 0);
+      const meanAbs = absDiffs.reduce((sum, value) => sum + value, 0) / absDiffs.length;
+      const rmse = Math.sqrt(diffs.reduce((sum, value) => sum + value * value, 0) / diffs.length);
+      return {
+        maxDiff: Math.max(...absDiffs),
+        avgDiff: meanAbs,
+        maxPct: Math.max(...pctErrors),
+        rmse
+      };
+    }
+
+    function formatCriterion(result) {
+      if (result.caseCriterion === "hv") {
+        return `${result.hardnessCriterionHv.toFixed(0)} HV (${result.threshold.toFixed(3)} wt% C equivalent)`;
+      }
+      return `${result.threshold.toFixed(3)} wt% C`;
+    }
+
+    function classifySemiInfiniteRatio(ratio) {
+      if (ratio > 10) {
+        return {
+          level: "valid",
+          status: "Semi-infinite assumption valid",
+          interpretation: "Finite-domain effects unlikely."
+        };
+      }
+      if (ratio >= 5) {
+        return {
+          level: "acceptable",
+          status: "Semi-infinite assumption generally acceptable",
+          interpretation: "Finite-domain effects unlikely."
+        };
+      }
+      if (ratio >= 3) {
+        return {
+          level: "caution",
+          status: "Use caution: finite-domain effects may appear",
+          interpretation: "Finite-domain effects may appear."
+        };
+      }
+      return {
+        level: "warning",
+        status: "Warning: analytical semi-infinite solution may become inaccurate",
+        interpretation: "Analytical semi-infinite solution may become inaccurate."
+      };
+    }
+
+    function microstructureFromCarbon(carbonWtPercent) {
+      if (carbonWtPercent > 0.8) return "High Carbon Martensite";
+      if (carbonWtPercent >= 0.4) return "Martensite + Bainite";
+      if (carbonWtPercent >= 0.2) return "Ferrite + Pearlite";
+      return "Ferritic Core";
+    }
+
+    function erf(value) {
+      const sign = value < 0 ? -1 : 1;
+      const x = Math.abs(value);
+      const a1 = 0.254829592;
+      const a2 = -0.284496736;
+      const a3 = 1.421413741;
+      const a4 = -1.453152027;
+      const a5 = 1.061405429;
+      const p = 0.3275911;
+      const t = 1 / (1 + p * x);
+      const y = 1 - (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1) * t * Math.exp(-x * x);
+      return sign * y;
+    }
+
+    function analyticalCarbonAt(xMm, params, D) {
+      const totalTime = Math.max(1, params.timeHours * 3600);
+      const denominator = 2 * Math.sqrt(Math.max(D, 1e-20) * totalTime);
+      const eta = (xMm / 1000) / denominator;
+      const normalized = 1 - erf(eta);
+      return params.initialCarbon + (params.surfaceCarbon - params.initialCarbon) * Math.max(0, Math.min(1, normalized));
+    }
+
+    function simulate(params) {
+      const D = diffusivity(params.temperature, params.grade.factor);
+      const totalTime = Math.max(1, params.timeHours * 3600);
+      const length = Math.max(0.001, params.depthMm / 1000);
+      const nodes = 181;
+      const dx = length / (nodes - 1);
+      const stableDt = 0.42 * dx * dx / Math.max(D, 1e-20);
+      const steps = Math.max(1, Math.ceil(totalTime / stableDt));
+      const dt = totalTime / steps;
+      const r = D * dt / (dx * dx);
+      let c = new Array(nodes).fill(params.initialCarbon);
+      c[0] = params.surfaceCarbon;
+
+      for (let n = 0; n < steps; n++) {
+        const next = c.slice();
+        next[0] = params.surfaceCarbon;
+        for (let i = 1; i < nodes - 1; i++) {
+          next[i] = c[i] + r * (c[i + 1] - 2 * c[i] + c[i - 1]);
+        }
+        next[nodes - 1] = next[nodes - 2];
+        c = next;
+      }
+
+      const x = Array.from({ length: nodes }, (_, i) => i * dx * 1000);
+      const cAnalytical = x.map((xMm) => analyticalCarbonAt(xMm, params, D));
+      const caseDepth = computeCaseDepth(x, c, params.threshold);
+      const analyticalCaseDepth = computeCaseDepth(x, cAnalytical, params.threshold);
+      const analyticalError = c.reduce((max, carbon, i) => Math.max(max, Math.abs(carbon - cAnalytical[i])), 0);
+      const characteristicDistanceMm = Math.sqrt(D * totalTime) * 1000;
+      const semiInfiniteRatio = params.depthMm / Math.max(characteristicDistanceMm, 1e-12);
+      return { ...params, D, dx, dt, r, steps, nodes, x, c, cAnalytical, caseDepth, analyticalCaseDepth, analyticalError, characteristicDistanceMm, semiInfiniteRatio };
+    }
+
+    function computeCaseDepth(x, c, threshold) {
+      if (c[0] < threshold) return 0;
+      for (let i = 1; i < c.length; i++) {
+        if (c[i] < threshold) {
+          const c1 = c[i - 1];
+          const c2 = c[i];
+          const x1 = x[i - 1];
+          const x2 = x[i];
+          const fraction = (threshold - c1) / (c2 - c1);
+          return x1 + fraction * (x2 - x1);
+        }
+      }
+      return x[x.length - 1];
+    }
+
+    function runSimulation() {
+      updateCriterionControls();
+      const primaryParams = readParams();
+      if (!validate(primaryParams)) return;
+
+      const compareMode = els.compareMode.value;
+      let series;
+      if (compareMode === "time") {
+        const times = Array.from(new Set([primaryParams.timeHours, ...selectedCompareTimes])).sort((a, b) => a - b);
+        series = times.map((timeHours) => simulate(readParams({ timeHours })));
+      } else {
+        const temperatures = Array.from(new Set([primaryParams.temperature, ...selectedCompareTemps])).sort((a, b) => a - b);
+        series = temperatures.map((temperature) => simulate(readParams({ temperature })));
+      }
+      const primary = series.find((item) => item.temperature === primaryParams.temperature && item.timeHours === primaryParams.timeHours) || series[0];
+      lastResult = { primary, series, compareMode };
+
+      updateMetrics(primary);
+      updateTable(primary);
+      updateQueryAndValidation(primary);
+      drawChart(lastResult);
+      drawArrheniusPlot(lastResult);
+      const compareNote = compareMode === "time"
+        ? "Time overlay shows case depth growing with x proportional to sqrt(Dt)."
+        : "Temperature overlay shows diffusivity changing through the Arrhenius relation.";
+      const analyticalNote = `Dashed analytical curves use the semi-infinite error-function solution; FDM uses a finite grid with zero flux at the far boundary.`;
+      els.status.textContent = `Surface is held at ${primary.surfaceCarbon.toFixed(2)} wt% C; far boundary uses zero flux. Depth criterion is ${primary.thresholdLabel}, equivalent to ${primary.threshold.toFixed(3)} wt% C. ${compareNote}`;
+      els.modelNote.textContent = `${primary.grade.name}; D adjusted by alloy factor ${primary.grade.factor.toFixed(2)}. ${compareNote} ${analyticalNote}`;
+      els.arrheniusNote.textContent = `Straight-line Arrhenius behavior for ${primary.grade.name}. The slope equals -Q/R, revealing activation energy.`;
+    }
+
+    function validate(params) {
+      if (!Number.isFinite(params.threshold)) {
+        els.status.textContent = "Depth criterion must be a valid number.";
+        return false;
+      }
+      if (params.surfaceCarbon <= params.initialCarbon) {
+        els.status.textContent = "Surface carbon must be greater than initial carbon.";
+        return false;
+      }
+      if (params.threshold <= params.initialCarbon || params.threshold >= params.surfaceCarbon) {
+        els.status.textContent = "Depth criterion should convert to a carbon level between initial and surface carbon.";
+        return false;
+      }
+      if (params.depthMm <= 0 || params.timeHours <= 0) {
+        els.status.textContent = "Time and model depth must be positive.";
+        return false;
+      }
+      return true;
+    }
+
+    function updateMetrics(result) {
+      els.caseDepthName.textContent = result.caseCriterion === "hv" ? "Effective case depth" : "Case depth";
+      els.caseDepth.textContent = `${result.caseDepth.toFixed(3)} mm`;
+      els.analyticalDepth.textContent = `${result.analyticalCaseDepth.toFixed(3)} mm`;
+      els.criterionCarbon.textContent = formatCriterion(result);
+      els.surfaceHardness.textContent = `${hardnessHvFromCarbon(result.c[0]).toFixed(0)} HV`;
+      els.diffusivity.innerHTML = formatScientific(result.D);
+      els.gridPoints.textContent = String(result.nodes);
+      els.timeSteps.textContent = result.steps.toLocaleString();
+      els.activationEnergy.textContent = `${(Q / 1000).toFixed(0)} kJ/mol`;
+      els.analyticError.textContent = `${result.analyticalError.toFixed(4)} wt% C`;
+      els.characteristicDistance.textContent = `${result.characteristicDistanceMm.toFixed(2)} mm`;
+    }
+
+    function updateTable(result) {
+      els.profileBody.innerHTML = "";
+      const sampleCount = 11;
+      for (let j = 0; j < sampleCount; j++) {
+        const i = Math.round(j * (result.x.length - 1) / (sampleCount - 1));
+        const normalized = (result.c[i] - result.initialCarbon) / (result.surfaceCarbon - result.initialCarbon);
+        const row = document.createElement("tr");
+        row.innerHTML = `
+          <td>${result.x[i].toFixed(3)} mm</td>
+          <td>${result.c[i].toFixed(4)} wt%</td>
+          <td>${result.cAnalytical[i].toFixed(4)} wt%</td>
+          <td>${hardnessFromCarbon(result.c[i]).toFixed(0)} HRC / ${hardnessHvFromCarbon(result.c[i]).toFixed(0)} HV</td>
+          <td>${microstructureFromCarbon(result.c[i])}</td>
+          <td>${Math.max(0, normalized).toFixed(3)}</td>
+        `;
+        els.profileBody.appendChild(row);
+      }
+    }
+
+    function updateQueryAndValidation(result) {
+      const validation = computeValidationStats(result);
+      els.validationMaxDiff.textContent = `${validation.maxDiff.toFixed(4)} wt% C`;
+      els.validationAvgDiff.textContent = `${validation.avgDiff.toFixed(4)} wt% C`;
+      els.validationMaxPct.textContent = `${validation.maxPct.toFixed(2)}%`;
+      els.validationRmse.textContent = `${validation.rmse.toFixed(4)} wt% C`;
+      const semiInfinite = classifySemiInfiniteRatio(result.semiInfiniteRatio);
+      const warningIcon = semiInfinite.level === "warning" ? "&#9888; " : "";
+      els.validationSemiRatio.textContent = `Depth / \u221a(Dt) = ${result.semiInfiniteRatio.toFixed(1)}`;
+      els.validationSemiStatus.innerHTML = `${warningIcon}${semiInfinite.status}. ${semiInfinite.interpretation}`;
+      els.validationSemiRatioRow.className = `validation-row ${semiInfinite.level}`;
+      els.validationSemiStatusRow.className = `validation-row ${semiInfinite.level}`;
+      els.profileAssumptionCheck.className = `assumption-check ${semiInfinite.level}`;
+      els.profileAssumptionCheck.innerHTML = `<strong>Semi-infinite assumption check:</strong> Depth / &radic;(Dt) = ${result.semiInfiniteRatio.toFixed(1)}. ${warningIcon}${semiInfinite.status}. ${semiInfinite.interpretation}`;
+
+      const mode = els.queryMode.value;
+      if (mode === "carbonAtDepth") {
+        const depth = Number(els.queryDepth.value);
+        if (!Number.isFinite(depth) || depth < 0 || depth > result.depthMm) {
+          els.queryResult.innerHTML = `<div class="query-warning">Depth must be between 0 and ${result.depthMm.toFixed(2)} mm.</div>`;
+          return;
+        }
+        const fdmCarbon = interpolateAtDepth(result.x, result.c, depth);
+        const analyticalCarbon = analyticalCarbonAt(depth, result, result.D);
+        const absDiff = Math.abs(fdmCarbon - analyticalCarbon);
+        const pctError = analyticalCarbon !== 0 ? absDiff / analyticalCarbon * 100 : 0;
+        const hardnessHrc = hardnessFromCarbon(fdmCarbon);
+        const hardnessHv = hardnessHvFromCarbon(fdmCarbon);
+        const structure = microstructureFromCarbon(fdmCarbon);
+        els.queryResult.innerHTML = [
+          `<div class="query-row"><span>FDM Carbon</span><strong>${fdmCarbon.toFixed(3)} wt% C</strong></div>`,
+          `<div class="query-row"><span>Analytical Carbon</span><strong>${analyticalCarbon.toFixed(3)} wt% C</strong></div>`,
+          `<div class="query-row"><span>Difference / % Error</span><strong>${absDiff.toFixed(4)} wt% C / ${pctError.toFixed(2)}%</strong></div>`,
+          `<div class="query-row"><span>Hardness</span><strong>${hardnessHrc.toFixed(0)} HRC / ${hardnessHv.toFixed(0)} HV</strong></div>`,
+          `<div class="query-row"><span>Microstructure</span><strong>${structure}</strong></div>`
+        ].join("");
+        return;
+      }
+
+      const targetCarbon = Number(els.queryCarbon.value);
+      const maxCarbon = Math.max(...result.c);
+      const minCarbon = Math.min(...result.c);
+      if (!Number.isFinite(targetCarbon)) {
+        els.queryResult.innerHTML = `<div class="query-warning">Carbon must be a valid number.</div>`;
+        return;
+      }
+      if (targetCarbon > maxCarbon || targetCarbon < minCarbon) {
+        els.queryResult.innerHTML = `<div class="query-warning">Target carbon concentration is outside the simulated profile range.</div>`;
+        return;
+      }
+      const fdmDepth = interpolateDepthAtCarbon(result.x, result.c, targetCarbon);
+      const analyticalDepth = solveAnalyticalDepthAtCarbon(targetCarbon, result, result.D);
+      if (fdmDepth === null || analyticalDepth === null) {
+        els.queryResult.innerHTML = `<div class="query-warning">Target carbon concentration is outside the simulated profile range.</div>`;
+        return;
+      }
+      const absDiff = Math.abs(fdmDepth - analyticalDepth);
+      const pctError = analyticalDepth !== 0 ? absDiff / analyticalDepth * 100 : 0;
+      els.queryResult.innerHTML = [
+        `<div class="query-row"><span>FDM Depth</span><strong>${fdmDepth.toFixed(3)} mm</strong></div>`,
+        `<div class="query-row"><span>Analytical Depth</span><strong>${analyticalDepth.toFixed(3)} mm</strong></div>`,
+        `<div class="query-row"><span>Difference / % Error</span><strong>${absDiff.toFixed(3)} mm / ${pctError.toFixed(2)}%</strong></div>`
+      ].join("");
+    }
+
+    function drawChart(result) {
+      const canvas = els.chart;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(720, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(420, Math.floor(rect.height * dpr));
+
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+      ctx.clearRect(0, 0, width, height);
+
+      const margin = { left: 64, right: 28, top: 24, bottom: 54 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+      const maxX = result.primary.depthMm;
+      const minY = Math.max(0, Math.min(result.primary.initialCarbon, result.primary.threshold) - 0.05);
+      const maxY = Math.min(1.45, Math.max(result.primary.surfaceCarbon, result.primary.threshold) + 0.08);
+
+      const sx = (x) => margin.left + (x / maxX) * plotW;
+      const sy = (y) => margin.top + (1 - (y - minY) / (maxY - minY)) * plotH;
+
+      ctx.fillStyle = "#fffdfa";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "#e2dccf";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#68635c";
+      ctx.font = "12px Inter, system-ui, sans-serif";
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let g = 0; g <= 5; g++) {
+        const yVal = minY + (g / 5) * (maxY - minY);
+        const y = sy(yVal);
+        ctx.beginPath();
+        ctx.moveTo(margin.left, y);
+        ctx.lineTo(width - margin.right, y);
+        ctx.stroke();
+        ctx.fillText(yVal.toFixed(2), margin.left - 10, y);
+      }
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (let g = 0; g <= 5; g++) {
+        const xVal = (g / 5) * maxX;
+        const x = sx(xVal);
+        ctx.beginPath();
+        ctx.moveTo(x, margin.top);
+        ctx.lineTo(x, height - margin.bottom);
+        ctx.stroke();
+        ctx.fillText(xVal.toFixed(1), x, height - margin.bottom + 10);
+      }
+
+      ctx.strokeStyle = "#3b3630";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, margin.top);
+      ctx.lineTo(margin.left, height - margin.bottom);
+      ctx.lineTo(width - margin.right, height - margin.bottom);
+      ctx.stroke();
+
+      drawAxisLabel(ctx, "Distance from surface (mm)", width / 2, height - 16, 0);
+      drawAxisLabel(ctx, "Carbon concentration (wt%)", 18, height / 2, -Math.PI / 2);
+
+      ctx.setLineDash([6, 5]);
+      ctx.strokeStyle = "#6f665a";
+      ctx.lineWidth = 1.2;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, sy(result.primary.threshold));
+      ctx.lineTo(width - margin.right, sy(result.primary.threshold));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#5d554b";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "bottom";
+      ctx.fillText(`${result.primary.thresholdLabel} -> ${result.primary.threshold.toFixed(3)} wt% C`, margin.left + 8, sy(result.primary.threshold) - 5);
+      if (result.compareMode === "time") {
+        ctx.fillStyle = "#40392f";
+        ctx.textBaseline = "top";
+        ctx.fillText("time overlay: x \u221d \u221a(Dt)", margin.left + 8, margin.top + 8);
+      }
+
+      els.legend.innerHTML = "";
+      result.series.forEach((series, index) => {
+        const color = colors[index % colors.length];
+        const isPrimary = result.compareMode === "time"
+          ? series.timeHours === result.primary.timeHours
+          : series.temperature === result.primary.temperature;
+        const label = result.compareMode === "time"
+          ? `${formatHours(series.timeHours)} h`
+          : `${series.temperature} \u00b0C`;
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isPrimary ? 3 : 2;
+        ctx.setLineDash([]);
+        ctx.beginPath();
+        series.x.forEach((xVal, i) => {
+          const px = sx(xVal);
+          const py = sy(series.c[i]);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+
+        ctx.strokeStyle = color;
+        ctx.lineWidth = isPrimary ? 2.2 : 1.7;
+        ctx.setLineDash([8, 5]);
+        ctx.beginPath();
+        series.x.forEach((xVal, i) => {
+          const px = sx(xVal);
+          const py = sy(series.cAnalytical[i]);
+          if (i === 0) ctx.moveTo(px, py);
+          else ctx.lineTo(px, py);
+        });
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        const item = document.createElement("span");
+        item.className = "legend-item";
+        item.innerHTML = `<span class="swatch" style="background:${color}"></span>${label} FDM`;
+        els.legend.appendChild(item);
+
+        const analyticalItem = document.createElement("span");
+        analyticalItem.className = "legend-item";
+        analyticalItem.innerHTML = `<span class="swatch dashed" style="color:${color}"></span>${label} analytical`;
+        els.legend.appendChild(analyticalItem);
+      });
+      const cd = result.primary.caseDepth;
+      ctx.strokeStyle = "#1f1b17";
+      ctx.lineWidth = 1.4;
+      ctx.setLineDash([3, 4]);
+      ctx.beginPath();
+      ctx.moveTo(sx(cd), sy(result.primary.threshold));
+      ctx.lineTo(sx(cd), height - margin.bottom);
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = "#1f1b17";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "bottom";
+      const depthLabel = result.primary.caseCriterion === "hv" ? `${cd.toFixed(3)} mm effective` : `${cd.toFixed(3)} mm`;
+      ctx.fillText(depthLabel, sx(cd), sy(result.primary.threshold) - 18);
+    }
+
+    function drawArrheniusPlot(result) {
+      const canvas = els.arrheniusChart;
+      const rect = canvas.getBoundingClientRect();
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = Math.max(720, Math.floor(rect.width * dpr));
+      canvas.height = Math.max(360, Math.floor(rect.height * dpr));
+
+      const ctx = canvas.getContext("2d");
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const width = canvas.width / dpr;
+      const height = canvas.height / dpr;
+      ctx.clearRect(0, 0, width, height);
+
+      const margin = { left: 68, right: 30, top: 24, bottom: 56 };
+      const plotW = width - margin.left - margin.right;
+      const plotH = height - margin.top - margin.bottom;
+      const gradeFactor = result.primary.grade.factor;
+      const lineTemps = Array.from({ length: 80 }, (_, i) => 760 + i * (1050 - 760) / 79);
+      const lineData = lineTemps.map((temperature) => {
+        const kelvin = temperature + 273.15;
+        return {
+          temperature,
+          x: 1000 / kelvin,
+          y: Math.log(diffusivity(temperature, gradeFactor))
+        };
+      }).sort((a, b) => a.x - b.x);
+      const pointData = result.series.map((series) => {
+        const kelvin = series.temperature + 273.15;
+        return {
+          temperature: series.temperature,
+          x: 1000 / kelvin,
+          y: Math.log(series.D)
+        };
+      });
+
+      const allX = lineData.map((p) => p.x);
+      const allY = lineData.map((p) => p.y);
+      const xMin = Math.min(...allX);
+      const xMax = Math.max(...allX);
+      const yMinRaw = Math.min(...allY);
+      const yMaxRaw = Math.max(...allY);
+      const yPad = Math.max(0.8, (yMaxRaw - yMinRaw) * 0.12);
+      const yMin = yMinRaw - yPad;
+      const yMax = yMaxRaw + yPad;
+      const sx = (x) => margin.left + ((x - xMin) / (xMax - xMin)) * plotW;
+      const sy = (y) => margin.top + (1 - (y - yMin) / (yMax - yMin)) * plotH;
+
+      ctx.fillStyle = "#fffdfa";
+      ctx.fillRect(0, 0, width, height);
+      ctx.strokeStyle = "#e2dccf";
+      ctx.lineWidth = 1;
+      ctx.fillStyle = "#68635c";
+      ctx.font = "12px Inter, system-ui, sans-serif";
+
+      ctx.textAlign = "right";
+      ctx.textBaseline = "middle";
+      for (let g = 0; g <= 5; g++) {
+        const yVal = yMin + (g / 5) * (yMax - yMin);
+        const y = sy(yVal);
+        ctx.beginPath();
+        ctx.moveTo(margin.left, y);
+        ctx.lineTo(width - margin.right, y);
+        ctx.stroke();
+        ctx.fillText(yVal.toFixed(1), margin.left - 10, y);
+      }
+
+      ctx.textAlign = "center";
+      ctx.textBaseline = "top";
+      for (let g = 0; g <= 5; g++) {
+        const xVal = xMin + (g / 5) * (xMax - xMin);
+        const x = sx(xVal);
+        ctx.beginPath();
+        ctx.moveTo(x, margin.top);
+        ctx.lineTo(x, height - margin.bottom);
+        ctx.stroke();
+        ctx.fillText(xVal.toFixed(3), x, height - margin.bottom + 10);
+      }
+
+      ctx.strokeStyle = "#3b3630";
+      ctx.lineWidth = 1.4;
+      ctx.beginPath();
+      ctx.moveTo(margin.left, margin.top);
+      ctx.lineTo(margin.left, height - margin.bottom);
+      ctx.lineTo(width - margin.right, height - margin.bottom);
+      ctx.stroke();
+
+      drawAxisLabel(ctx, "1000/T (K⁻¹)", width / 2, height - 16, 0);
+      drawAxisLabel(ctx, "ln(D)", 20, height / 2, -Math.PI / 2);
+
+      ctx.strokeStyle = "#0b6f6a";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      lineData.forEach((point, index) => {
+        const x = sx(point.x);
+        const y = sy(point.y);
+        if (index === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+      });
+      ctx.stroke();
+
+      pointData.forEach((point, index) => {
+        const x = sx(point.x);
+        const y = sy(point.y);
+        ctx.beginPath();
+        ctx.fillStyle = colors[index % colors.length];
+        ctx.strokeStyle = point.temperature === result.primary.temperature ? "#1f1b17" : "#ffffff";
+        ctx.lineWidth = point.temperature === result.primary.temperature ? 2.5 : 1.5;
+        ctx.arc(x, y, point.temperature === result.primary.temperature ? 6 : 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+
+        ctx.fillStyle = "#37322c";
+        ctx.font = "12px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "bottom";
+        ctx.fillText(`${point.temperature} °C`, x, y - 10);
+      });
+
+      const slope = -Q / R;
+      ctx.fillStyle = "#40392f";
+      ctx.font = "13px Inter, system-ui, sans-serif";
+      ctx.textAlign = "left";
+      ctx.textBaseline = "top";
+      ctx.fillText(`slope = -Q/R = ${slope.toFixed(0)} K`, margin.left + 8, margin.top + 8);
+
+      els.arrheniusLegend.innerHTML = "";
+      [
+        { label: "Arrhenius line", color: "#0b6f6a" },
+        { label: "selected temperatures", color: "#bd6b00" }
+      ].forEach((item) => {
+        const legend = document.createElement("span");
+        legend.className = "legend-item";
+        legend.innerHTML = `<span class="swatch" style="background:${item.color}"></span>${item.label}`;
+        els.arrheniusLegend.appendChild(legend);
+      });
+    }
+
+    function drawAxisLabel(ctx, text, x, y, rotation) {
+      ctx.save();
+      ctx.translate(x, y);
+      ctx.rotate(rotation);
+      ctx.fillStyle = "#37322c";
+      ctx.font = "13px Inter, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(text, 0, 0);
+      ctx.restore();
+    }
+
+    function exportCsv() {
+      if (!lastResult) runSimulation();
+      const result = lastResult.primary;
+      const lines = [
+        `criterion,${result.thresholdLabel}`,
+        `criterion_carbon_wt_percent,${result.threshold.toFixed(6)}`,
+        `fdm_case_depth_mm,${result.caseDepth.toFixed(6)}`,
+        `analytical_case_depth_mm,${result.analyticalCaseDepth.toFixed(6)}`,
+        `max_abs_fdm_analytical_error_wt_percent,${result.analyticalError.toFixed(6)}`,
+        "",
+        "distance_mm,fdm_carbon_wt_percent,analytical_carbon_wt_percent,approx_hardness_hrc,approx_hardness_hv,predicted_structure",
+        ...result.x.map((x, i) => `${x.toFixed(6)},${result.c[i].toFixed(6)},${result.cAnalytical[i].toFixed(6)},${hardnessFromCarbon(result.c[i]).toFixed(1)},${hardnessHvFromCarbon(result.c[i]).toFixed(1)},\"${microstructureFromCarbon(result.c[i])}\"`)
+      ];
+      const blob = new Blob([lines.join("\n")], { type: "text/csv;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `carburization_${result.grade.id}_${result.temperature}C_${result.timeHours}h.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    }
+
+    function formatScientific(value) {
+      const [mantissa, exponent] = value.toExponential(2).split("e");
+      return `${mantissa} × 10<sup>${Number(exponent)}</sup> m²/s`;
+    }
+
+    init();
+  </script>
+</body>
+</html>
